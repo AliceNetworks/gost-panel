@@ -1,0 +1,53 @@
+# Claude Code local config
+.claude/
+
+# Binaries
+gost-panel
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build output (binaries, agents)
+dist/
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node modules (frontend)
+web/node_modules/
+
+# Build output is committed (for go:embed)
+# internal/api/dist/
+
+# Test coverage
+coverage/
+*.cover
+*.out
+
+# Temporary files
+tmp/
+temp/
+*.tmp

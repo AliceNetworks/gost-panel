@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  panel:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DB_PATH=/app/data/panel.db
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - DEBUG=false
+    restart: unless-stopped

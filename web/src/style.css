@@ -1,0 +1,440 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Glassmorphism Dark Theme Colors */
+  --bg-primary: #0a0e27;
+  --bg-secondary: #0f1535;
+  --bg-tertiary: #151b3b;
+
+  /* Glass Card */
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --glass-blur: 12px;
+
+  /* Accent Colors */
+  --accent-primary: #3b82f6;
+  --accent-success: #22c55e;
+  --accent-warning: #f59e0b;
+  --accent-danger: #ef4444;
+  --accent-info: #06b6d4;
+
+  /* Glow Effects */
+  --glow-primary: 0 0 20px rgba(59, 130, 246, 0.3);
+  --glow-success: 0 0 20px rgba(34, 197, 94, 0.3);
+  --glow-danger: 0 0 20px rgba(239, 68, 68, 0.3);
+
+  /* Text Colors */
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-tertiary: rgba(255, 255, 255, 0.5);
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  --gradient-success: linear-gradient(135deg, #22c55e 0%, #06b6d4 100%);
+  --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+
+  /* Border Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+/* Glassmorphism Card */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  transition: all var(--transition-normal);
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: var(--glass-shadow), var(--glow-primary);
+}
+
+/* Status Indicators */
+.status-online {
+  color: var(--accent-success);
+  text-shadow: var(--glow-success);
+}
+
+.status-offline {
+  color: var(--accent-danger);
+  text-shadow: var(--glow-danger);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent-primary);
+  color: white;
+}
+
+/* Dark mode is now default */
+.dark {
+  color-scheme: dark;
+}
+
+/* Override for Naive UI Components in Dark Mode */
+.n-card {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-lg) !important;
+  transition: all var(--transition-normal);
+}
+
+.n-card:hover {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.n-statistic .n-statistic-value {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+}
+
+/* Stat Cards with Gradient Border */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.stat-card.success::before {
+  background: var(--gradient-success);
+}
+
+/* Button Glow Effect */
+.n-button--primary-type {
+  box-shadow: var(--glow-primary);
+}
+
+/* Tag Glow */
+.n-tag--success-type {
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+}
+
+.n-tag--error-type {
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+}
+
+/* Data Table Glass Effect */
+.n-data-table {
+  background: transparent !important;
+}
+
+.n-data-table .n-data-table-thead {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.n-data-table .n-data-table-tr:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Menu Glass Effect */
+.n-menu {
+  background: transparent !important;
+}
+
+.n-menu-item-content:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.n-menu-item-content--selected {
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Layout Sider Glass Effect */
+.n-layout-sider {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--glass-border) !important;
+}
+
+/* Header Glass Effect */
+.n-layout-header {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-border) !important;
+}
+
+/* Chart Container */
+.chart-container {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+
+/* Animated Background Orbs (optional decorative) */
+.bg-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.bg-orb-1 {
+  width: 400px;
+  height: 400px;
+  background: var(--accent-primary);
+  top: -100px;
+  right: -100px;
+}
+
+.bg-orb-2 {
+  width: 300px;
+  height: 300px;
+  background: #8b5cf6;
+  bottom: -50px;
+  left: -50px;
+}
+
+/* Pulse Animation for Live Status */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--accent-success);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--accent-success), 0 0 30px var(--accent-success);
+  }
+}
+
+.live-indicator {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Fade In Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Number Counter Animation */
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.count-up {
+  animation: countUp 0.5s ease-out;
+}
+
+/* ==================== 移动端响应式 ==================== */
+
+/* 平板 (768px - 1024px) */
+@media (max-width: 1024px) {
+  .n-layout-content {
+    padding: 16px !important;
+  }
+
+  .n-grid {
+    gap: 12px !important;
+  }
+
+  .n-card {
+    padding: 16px !important;
+  }
+
+  /* 统计卡片两列 */
+  .n-grid[data-cols="4"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* 手机 (< 768px) */
+@media (max-width: 768px) {
+  /* 侧边栏默认收起 */
+  .n-layout-sider {
+    position: fixed !important;
+    z-index: 1000;
+    height: 100vh;
+  }
+
+  .n-layout-content {
+    padding: 12px !important;
+    margin-left: 0 !important;
+  }
+
+  /* 头部优化 */
+  .header {
+    padding: 0 12px !important;
+  }
+
+  .header-title {
+    font-size: 16px !important;
+  }
+
+  /* 统计卡片单列 */
+  .n-grid[data-cols="4"],
+  .n-grid[data-cols="3"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 表格横向滚动 */
+  .n-data-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .n-data-table {
+    min-width: 600px;
+  }
+
+  /* 表格操作按钮竖排 */
+  .n-data-table .n-space {
+    flex-wrap: wrap;
+  }
+
+  /* 搜索框全宽 */
+  .n-input[style*="width: 200px"] {
+    width: 100% !important;
+    min-width: 120px;
+  }
+
+  /* 卡片头部操作换行 */
+  .n-card-header .n-space[justify="space-between"] {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px;
+  }
+
+  .n-card-header .n-space .n-space {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  /* 模态框全屏 */
+  .n-modal {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 10px;
+  }
+
+  /* 表单两列变单列 */
+  .n-grid[cols="2"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 按钮组换行 */
+  .n-space {
+    flex-wrap: wrap;
+  }
+
+  /* 隐藏非必要列 */
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* 超小屏 (< 480px) */
+@media (max-width: 480px) {
+  .n-layout-content {
+    padding: 8px !important;
+  }
+
+  .n-card {
+    border-radius: 12px !important;
+    padding: 12px !important;
+  }
+
+  .n-statistic .n-statistic-value {
+    font-size: 24px !important;
+  }
+
+  .n-button {
+    padding: 0 12px !important;
+  }
+
+  /* 更小的表格字体 */
+  .n-data-table {
+    font-size: 13px;
+  }
+
+  .n-data-table th,
+  .n-data-table td {
+    padding: 8px 6px !important;
+  }
+}
