@@ -34,14 +34,24 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Get version
+      - name: Get version info
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            VERSION="${{ github.event.inputs.version }}"
           else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            VERSION="${GITHUB_REF#refs/tags/}"
           fi
+          BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S')
+          COMMIT="${GITHUB_SHA::8}"
+
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "BUILD_TIME=$BUILD_TIME" >> $GITHUB_OUTPUT
+          echo "COMMIT=$COMMIT" >> $GITHUB_OUTPUT
+
+          echo "Version: $VERSION"
+          echo "Build Time: $BUILD_TIME"
+          echo "Commit: $COMMIT"
 
       - name: Build frontend
         run: |
@@ -51,14 +61,21 @@ jobs:
 
       - name: Build Panel (multi-platform)
         run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          BUILD_TIME="${{ steps.version.outputs.BUILD_TIME }}"
+
+          LDFLAGS="-s -w"
+          LDFLAGS="${LDFLAGS} -X 'github.com/AliceNetworks/gost-panel/internal/api.CurrentAgentVersion=${VERSION}'"
+          LDFLAGS="${LDFLAGS} -X 'github.com/AliceNetworks/gost-panel/internal/api.AgentBuildTime=${BUILD_TIME}'"
+
           mkdir -p dist/panel
 
           # Linux
-          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/panel/gost-panel-linux-amd64 cmd/panel/main.go
-          GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/panel/gost-panel-linux-arm64 cmd/panel/main.go
+          GOOS=linux GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/panel/gost-panel-linux-amd64 cmd/panel/main.go
+          GOOS=linux GOARCH=arm64 go build -ldflags="${LDFLAGS}" -o dist/panel/gost-panel-linux-arm64 cmd/panel/main.go
 
           # Windows
-          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/panel/gost-panel-windows-amd64.exe cmd/panel/main.go
+          GOOS=windows GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/panel/gost-panel-windows-amd64.exe cmd/panel/main.go
 
           # Compress
           cd dist/panel
@@ -72,21 +89,30 @@ jobs:
 
       - name: Build Agent (multi-platform)
         run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          BUILD_TIME="${{ steps.version.outputs.BUILD_TIME }}"
+          COMMIT="${{ steps.version.outputs.COMMIT }}"
+
+          LDFLAGS="-s -w"
+          LDFLAGS="${LDFLAGS} -X 'main.AgentVersion=${VERSION}'"
+          LDFLAGS="${LDFLAGS} -X 'main.AgentBuildTime=${BUILD_TIME}'"
+          LDFLAGS="${LDFLAGS} -X 'main.AgentCommit=${COMMIT}'"
+
           mkdir -p dist/agents
 
           # Linux
-          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/agents/gost-agent-linux-amd64 cmd/agent/main.go
-          GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/agents/gost-agent-linux-arm64 cmd/agent/main.go
-          GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-s -w" -o dist/agents/gost-agent-linux-armv7 cmd/agent/main.go
-          GOOS=linux GOARCH=arm GOARM=6 go build -ldflags="-s -w" -o dist/agents/gost-agent-linux-armv6 cmd/agent/main.go
-          GOOS=linux GOARCH=mips GOMIPS=softfloat go build -ldflags="-s -w" -o dist/agents/gost-agent-linux-mips cmd/agent/main.go
-          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -ldflags="-s -w" -o dist/agents/gost-agent-linux-mipsle cmd/agent/main.go
-          GOOS=linux GOARCH=mips64 go build -ldflags="-s -w" -o dist/agents/gost-agent-linux-mips64 cmd/agent/main.go
+          GOOS=linux GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/agents/gost-agent-linux-amd64 cmd/agent/main.go
+          GOOS=linux GOARCH=arm64 go build -ldflags="${LDFLAGS}" -o dist/agents/gost-agent-linux-arm64 cmd/agent/main.go
+          GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="${LDFLAGS}" -o dist/agents/gost-agent-linux-armv7 cmd/agent/main.go
+          GOOS=linux GOARCH=386 go build -ldflags="${LDFLAGS}" -o dist/agents/gost-agent-linux-386 cmd/agent/main.go
+
+          # macOS
+          GOOS=darwin GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/agents/gost-agent-darwin-amd64 cmd/agent/main.go
+          GOOS=darwin GOARCH=arm64 go build -ldflags="${LDFLAGS}" -o dist/agents/gost-agent-darwin-arm64 cmd/agent/main.go
 
           # Windows
-          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/agents/gost-agent-windows-amd64.exe cmd/agent/main.go
-          GOOS=windows GOARCH=arm64 go build -ldflags="-s -w" -o dist/agents/gost-agent-windows-arm64.exe cmd/agent/main.go
-          GOOS=windows GOARCH=386 go build -ldflags="-s -w" -o dist/agents/gost-agent-windows-386.exe cmd/agent/main.go
+          GOOS=windows GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/agents/gost-agent-windows-amd64.exe cmd/agent/main.go
+          GOOS=windows GOARCH=arm64 go build -ldflags="${LDFLAGS}" -o dist/agents/gost-agent-windows-arm64.exe cmd/agent/main.go
 
       - name: Generate checksums
         run: |
@@ -98,7 +124,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.VERSION }}
-          name: Release ${{ steps.version.outputs.VERSION }}
+          name: GOST Panel ${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
           files: |
@@ -109,6 +135,9 @@ jobs:
           body: |
             ## GOST Panel ${{ steps.version.outputs.VERSION }}
 
+            Build Time: `${{ steps.version.outputs.BUILD_TIME }}`
+            Commit: `${{ steps.version.outputs.COMMIT }}`
+
             ### 下载
 
             **面板 (Panel):**
@@ -117,8 +146,13 @@ jobs:
             - Windows: `gost-panel-windows-amd64.zip`
 
             **Agent (节点/客户端):**
-            - Linux: `gost-agent-linux-{amd64,arm64,armv7,armv6,mips,mipsle,mips64}`
-            - Windows: `gost-agent-windows-{amd64,arm64,386}.exe`
+            - Linux: `gost-agent-linux-{amd64,arm64,armv7,386}`
+            - macOS: `gost-agent-darwin-{amd64,arm64}`
+            - Windows: `gost-agent-windows-{amd64,arm64}.exe`
+
+            ### 版本信息
+
+            Agent 已内置版本号 `${{ steps.version.outputs.VERSION }}`，支持自动更新。
 
             ### 快速安装
 
