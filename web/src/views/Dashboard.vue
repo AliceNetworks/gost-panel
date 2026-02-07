@@ -167,12 +167,12 @@
         <n-grid v-if="cardId === 'status-charts'" :x-gap="16" :y-gap="16" :cols="2">
           <n-grid-item>
             <n-card title="节点状态分布">
-              <div ref="nodePieRef" style="height: 200px"></div>
+              <div :ref="(el: any) => onNodePieRef(el)" style="height: 200px"></div>
             </n-card>
           </n-grid-item>
           <n-grid-item>
             <n-card title="客户端状态分布">
-              <div ref="clientPieRef" style="height: 200px"></div>
+              <div :ref="(el: any) => onClientPieRef(el)" style="height: 200px"></div>
             </n-card>
           </n-grid-item>
         </n-grid>
@@ -188,7 +188,7 @@
               @update:value="loadTrafficHistory"
             />
           </template>
-          <div ref="chartRef" style="height: 300px"></div>
+          <div :ref="(el: any) => onTrafficChartRef(el)" style="height: 300px"></div>
         </n-card>
 
         <!-- Traffic Stats -->
@@ -232,7 +232,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, h, nextTick, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, h, nextTick, computed } from 'vue'
 import { NTag, NSwitch, NTooltip, NDivider, useMessage } from 'naive-ui'
 import {
   ServerOutline,
@@ -493,50 +493,41 @@ const loadTrafficHistory = async () => {
   }
 }
 
-const initChart = () => {
-  if (!chartRef.value) return
-  if (chart) {
-    chart.dispose()
-  }
-
-  chart = echarts.init(chartRef.value)
-  updateChart()
-
-  // 监听窗口大小变化
-  if (!resizeHandler) {
-    resizeHandler = () => {
-      chart?.resize()
-      nodePieChart?.resize()
-      clientPieChart?.resize()
+// 函数 ref 回调 - 解决 v-for 内 template ref 不可靠的问题
+const onTrafficChartRef = (el: HTMLElement | null) => {
+  chartRef.value = el
+  if (el) {
+    if (chart) chart.dispose()
+    chart = echarts.init(el)
+    updateChart()
+    if (!resizeHandler) {
+      resizeHandler = () => {
+        chart?.resize()
+        nodePieChart?.resize()
+        clientPieChart?.resize()
+      }
+      window.addEventListener('resize', resizeHandler)
     }
-    window.addEventListener('resize', resizeHandler)
   }
 }
 
-const initPieCharts = () => {
-  if (nodePieRef.value) {
+const onNodePieRef = (el: HTMLElement | null) => {
+  nodePieRef.value = el
+  if (el) {
     if (nodePieChart) nodePieChart.dispose()
-    nodePieChart = echarts.init(nodePieRef.value)
+    nodePieChart = echarts.init(el)
+    updatePieCharts()
   }
-  if (clientPieRef.value) {
-    if (clientPieChart) clientPieChart.dispose()
-    clientPieChart = echarts.init(clientPieRef.value)
-  }
-  updatePieCharts()
 }
 
-// 监听 ref 可用时初始化图表（v-for + v-if 中 ref 可能延迟就绪）
-watch(chartRef, (el) => {
-  if (el && !chart) {
-    initChart()
+const onClientPieRef = (el: HTMLElement | null) => {
+  clientPieRef.value = el
+  if (el) {
+    if (clientPieChart) clientPieChart.dispose()
+    clientPieChart = echarts.init(el)
+    updatePieCharts()
   }
-})
-
-watch([nodePieRef, clientPieRef], ([nodeEl, clientEl]) => {
-  if ((nodeEl && !nodePieChart) || (clientEl && !clientPieChart)) {
-    initPieCharts()
-  }
-})
+}
 
 const updatePieCharts = () => {
   const onlineNodes = stats.value.online_nodes
@@ -893,12 +884,7 @@ const handleWSMessage = (msg: { type: string; data: any }) => {
 onMounted(() => {
   // 不使用 await，让加载异步进行，不阻塞 UI
   loadAll()
-  // 图表初始化由 watch(chartRef/nodePieRef/clientPieRef) 处理
-  // 确保 v-for + v-if 中的 ref 就绪后再 init
-  nextTick(() => {
-    initChart()
-    initPieCharts()
-  })
+  // 图表初始化由函数 ref 回调 (onTrafficChartRef/onNodePieRef/onClientPieRef) 自动处理
   startAutoRefresh()
   connectWebSocket()
 
