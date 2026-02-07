@@ -14,7 +14,19 @@
         隧道转发支持多跳代理链：用户 → 国内VPS(中转) → 国外VPS(落地) → 目标网站
       </n-alert>
 
+      <!-- 骨架屏加载 -->
+      <TableSkeleton v-if="loading && proxyChains.length === 0" :rows="3" />
+
+      <!-- 空状态 -->
+      <EmptyState
+        v-else-if="!loading && proxyChains.length === 0"
+        type="tunnels"
+        action-text="添加隧道"
+        @action="openCreateModal"
+      />
+
       <n-data-table
+        v-else
         :columns="columns"
         :data="proxyChains"
         :loading="loading"
@@ -116,6 +128,8 @@
 import { ref, h, onMounted, computed } from 'vue'
 import { NButton, NSpace, NTag, useMessage, useDialog } from 'naive-ui'
 import { getProxyChains, createProxyChain, updateProxyChain, deleteProxyChain, getProxyChainHops, addProxyChainHop, removeProxyChainHop, getProxyChainConfig, getNodes } from '../api'
+import EmptyState from '../components/EmptyState.vue'
+import TableSkeleton from '../components/TableSkeleton.vue'
 
 const message = useMessage()
 const dialog = useDialog()

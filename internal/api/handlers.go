@@ -984,29 +984,6 @@ func (s *Server) agentGetConfig(c *gin.Context) {
 
 // ==================== GOST 操作 ====================
 
-func (s *Server) testNodeConnection(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
-
-	client, err := s.svc.GetGostClient(uint(id))
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
-		return
-	}
-
-	if err := client.Ping(); err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"success": true})
-}
-
-// 用于导出的 GOST 客户端接口
-var _ = gost.NewClient
-
 // ==================== 用户管理 ====================
 
 func (s *Server) listUsers(c *gin.Context) {
@@ -1607,6 +1584,49 @@ func (s *Server) getAlertLogs(c *gin.Context) {
 
 // ==================== 端口转发 ====================
 
+// portForwardToResponse 转换 PortForward 为前端兼容的响应格式
+func portForwardToResponse(pf model.PortForward, nodeName string) gin.H {
+	listenHost := "0.0.0.0"
+	listenPort := 0
+	if pf.LocalAddr != "" {
+		if h, p, err := net.SplitHostPort(pf.LocalAddr); err == nil {
+			if h != "" {
+				listenHost = h
+			}
+			listenPort, _ = strconv.Atoi(p)
+		}
+	}
+
+	targetHost := ""
+	targetPort := 0
+	if pf.RemoteAddr != "" {
+		if h, p, err := net.SplitHostPort(pf.RemoteAddr); err == nil {
+			targetHost = h
+			targetPort, _ = strconv.Atoi(p)
+		}
+	}
+
+	return gin.H{
+		"id":          pf.ID,
+		"node_id":     pf.NodeID,
+		"name":        pf.Name,
+		"type":        pf.Type,
+		"protocol":    pf.Type,
+		"local_addr":  pf.LocalAddr,
+		"remote_addr": pf.RemoteAddr,
+		"listen_host": listenHost,
+		"listen_port": listenPort,
+		"target_host": targetHost,
+		"target_port": targetPort,
+		"chain_id":    pf.ChainID,
+		"enabled":     pf.Enabled,
+		"owner_id":    pf.OwnerID,
+		"node_name":   nodeName,
+		"created_at":  pf.CreatedAt,
+		"updated_at":  pf.UpdatedAt,
+	}
+}
+
 func (s *Server) listPortForwards(c *gin.Context) {
 	userID, isAdmin := getUserInfo(c)
 	forwards, err := s.svc.ListPortForwards(userID, isAdmin)
@@ -1614,7 +1634,29 @@ func (s *Server) listPortForwards(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, forwards)
+
+	// 构建节点名称映射
+	nodeIDs := make(map[uint]bool)
+	for _, f := range forwards {
+		if f.NodeID > 0 {
+			nodeIDs[f.NodeID] = true
+		}
+	}
+	nodeNames := make(map[uint]string)
+	if len(nodeIDs) > 0 {
+		nodes, _ := s.svc.ListNodesByOwner(0, true)
+		for _, n := range nodes {
+			if nodeIDs[n.ID] {
+				nodeNames[n.ID] = n.Name
+			}
+		}
+	}
+
+	result := make([]gin.H, len(forwards))
+	for i, f := range forwards {
+		result[i] = portForwardToResponse(f, nodeNames[f.NodeID])
+	}
+	c.JSON(http.StatusOK, result)
 }
 
 func (s *Server) getPortForward(c *gin.Context) {
@@ -1624,7 +1666,14 @@ func (s *Server) getPortForward(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "port forward not found"})
 		return
 	}
-	c.JSON(http.StatusOK, forward)
+
+	nodeName := ""
+	if forward.NodeID > 0 {
+		if node, err := s.svc.GetNode(forward.NodeID); err == nil {
+			nodeName = node.Name
+		}
+	}
+	c.JSON(http.StatusOK, portForwardToResponse(*forward, nodeName))
 }
 
 type CreatePortForwardRequest struct {

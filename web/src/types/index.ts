@@ -10,10 +10,23 @@ export interface User extends BaseEntity {
   username: string
   email?: string
   role: string
+  enabled: boolean
   password_changed: boolean
   email_verified: boolean
-  last_login?: string
+  last_login_at?: string
   last_login_ip?: string
+  // 套餐
+  plan_id?: number
+  plan?: Plan
+  plan_start_at?: string
+  plan_expire_at?: string
+  plan_traffic_used?: number
+  // 流量配额
+  traffic_quota?: number
+  quota_used?: number
+  quota_reset_day?: number
+  quota_reset_at?: string
+  quota_exceeded?: boolean
 }
 
 export interface LoginResponse {
@@ -30,17 +43,42 @@ export interface Node extends BaseEntity {
   name: string
   host: string
   port: number
-  protocol: string
+  api_port?: number
+  proxy_user?: string
   status: string
-  username?: string
-  password?: string
-  config?: Record<string, unknown>
-  gost_api_addr?: string
-  gost_api_auth?: string
   traffic_in: number
   traffic_out: number
   connections: number
-  latency?: number
+  // 协议配置
+  protocol: string
+  transport?: string
+  transport_opts?: string
+  // Shadowsocks
+  ss_method?: string
+  // VMess
+  vmess_alter_id?: number
+  // TLS
+  tls_enabled?: boolean
+  tls_cert_file?: string
+  tls_key_file?: string
+  tls_sni?: string
+  // WebSocket
+  ws_path?: string
+  ws_host?: string
+  // 限速
+  speed_limit?: number
+  conn_rate_limit?: number
+  // DNS
+  dns_server?: string
+  // 流量配额
+  traffic_quota?: number
+  quota_reset_day?: number
+  quota_used?: number
+  quota_reset_at?: string
+  quota_exceeded?: boolean
+  // 所有者
+  owner_id?: number
+  last_seen?: string
   tags?: Tag[]
 }
 
@@ -71,16 +109,23 @@ export type TagUpdateRequest = { name?: string; color?: string }
 // 客户端相关
 export interface Client extends BaseEntity {
   name: string
-  token: string
   node_id: number
+  node?: Node
+  local_port: number
+  remote_port: number
+  proxy_user?: string
   status: string
-  listen_port: number
-  target_addr: string
-  config?: Record<string, unknown>
   traffic_in: number
   traffic_out: number
-  last_heartbeat?: string
-  node?: Node
+  // 流量配额
+  traffic_quota?: number
+  quota_reset_day?: number
+  quota_used?: number
+  quota_reset_at?: string
+  quota_exceeded?: boolean
+  // 所有者
+  owner_id?: number
+  last_seen?: string
 }
 
 // 通知渠道
@@ -98,56 +143,88 @@ export interface AlertRule extends BaseEntity {
   enabled: boolean
   condition: Record<string, unknown>
   channel_ids: number[]
+  cooldown_min?: number
+  last_alert_at?: string
 }
 
 // 端口转发
 export interface PortForward extends BaseEntity {
   name: string
   node_id: number
+  type: string
   protocol: string
+  local_addr: string
+  remote_addr: string
+  listen_host: string
   listen_port: number
-  target_addr: string
+  target_host: string
+  target_port: number
+  chain_id?: number
   enabled: boolean
-  node?: Node
+  owner_id?: number
+  node_name?: string
 }
 
 // 节点组
 export interface NodeGroup extends BaseEntity {
   name: string
   strategy: string
-  selector?: Record<string, unknown>
+  selector?: string
+  fail_timeout?: number
+  max_fails?: number
+  health_check?: boolean
+  check_interval?: number
+  owner_id?: number
   members?: NodeGroupMember[]
 }
 
-export interface NodeGroupMember extends BaseEntity {
+export interface NodeGroupMember {
+  id: number
   group_id: number
   node_id: number
   weight: number
+  priority?: number
+  enabled?: boolean
   node?: Node
 }
 
 // 代理链
 export interface ProxyChain extends BaseEntity {
   name: string
+  description?: string
+  listen_addr: string
+  listen_type: string
+  target_addr?: string
   enabled: boolean
+  owner_id?: number
   hops?: ProxyChainHop[]
 }
 
-export interface ProxyChainHop extends BaseEntity {
+export interface ProxyChainHop {
+  id: number
   chain_id: number
   node_id: number
-  order: number
+  hop_order: number
+  enabled: boolean
   node?: Node
 }
 
 // 隧道
 export interface Tunnel extends BaseEntity {
   name: string
+  description?: string
   entry_node_id: number
+  entry_port: number
+  protocol: string
   exit_node_id: number
-  listen_port: number
   target_addr: string
   enabled: boolean
+  traffic_in?: number
+  traffic_out?: number
+  traffic_quota?: number
+  quota_reset_day?: number
+  speed_limit?: number
+  owner_id?: number
   entry_node?: Node
   exit_node?: Node
 }
@@ -185,7 +262,7 @@ export interface OperationLog extends BaseEntity {
   action: string
   resource: string
   resource_id: number
-  details: string
+  detail: string
   ip: string
   user_agent: string
   status: string
