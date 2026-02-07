@@ -2177,3 +2177,63 @@ func (s *Service) GetSDsByNode(nodeID uint) ([]model.SD, error) {
 	err := s.db.Where("node_id = ? OR node_id IS NULL", nodeID).Find(&sds).Error
 	return sds, err
 }
+
+// ==================== ConfigVersion 配置版本历史 ====================
+
+// SaveConfigVersion 保存配置版本快照
+func (s *Service) SaveConfigVersion(nodeID uint, config string, comment string) error {
+	version := &model.ConfigVersion{
+		NodeID:    nodeID,
+		Config:    config,
+		Comment:   comment,
+		CreatedAt: time.Now(),
+	}
+	return s.db.Create(version).Error
+}
+
+// GetConfigVersions 获取节点配置版本列表
+func (s *Service) GetConfigVersions(nodeID uint) ([]model.ConfigVersion, error) {
+	var versions []model.ConfigVersion
+	err := s.db.Where("node_id = ?", nodeID).Order("id desc").Find(&versions).Error
+	return versions, err
+}
+
+// GetConfigVersion 获取单个版本
+func (s *Service) GetConfigVersion(id uint) (*model.ConfigVersion, error) {
+	var version model.ConfigVersion
+	err := s.db.First(&version, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &version, nil
+}
+
+// DeleteConfigVersion 删除版本
+func (s *Service) DeleteConfigVersion(id uint) error {
+	return s.db.Delete(&model.ConfigVersion{}, id).Error
+}
+
+// CleanupOldVersions 清理旧版本（保留最新 N 个）
+func (s *Service) CleanupOldVersions(nodeID uint, keepCount int) error {
+	// 获取所有版本，按 ID 降序
+	var versions []model.ConfigVersion
+	if err := s.db.Where("node_id = ?", nodeID).Order("id desc").Find(&versions).Error; err != nil {
+		return err
+	}
+
+	// 如果版本数量不超过保留数量，无需清理
+	if len(versions) <= keepCount {
+		return nil
+	}
+
+	// 删除多余的旧版本
+	var idsToDelete []uint
+	for i := keepCount; i < len(versions); i++ {
+		idsToDelete = append(idsToDelete, versions[i].ID)
+	}
+
+	if len(idsToDelete) > 0 {
+		return s.db.Delete(&model.ConfigVersion{}, idsToDelete).Error
+	}
+	return nil
+}

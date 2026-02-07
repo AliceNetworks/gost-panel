@@ -94,6 +94,7 @@ export const updateNode = (id: number, data: NodeUpdateRequest) => api.put(`/nod
 export const deleteNode = (id: number) => api.delete(`/nodes/${id}`)
 export const applyNodeConfig = (id: number) => api.post(`/nodes/${id}/apply`)
 export const syncNodeConfig = (id: number) => api.post(`/nodes/${id}/sync`)
+export const cloneNode = (id: number) => api.post(`/nodes/${id}/clone`)
 export const getNodeGostConfig = (id: number) => api.get(`/nodes/${id}/gost-config`)
 export const getNodeProxyURI = (id: number) => api.get(`/nodes/${id}/proxy-uri`)
 export const getNodeInstallScript = (id: number, os: string = 'linux') =>
@@ -339,5 +340,19 @@ export const getSD = (id: number) => api.get(`/sds/${id}`)
 export const createSD = (data: SDCreateRequest) => api.post('/sds', data)
 export const updateSD = (id: number, data: SDUpdateRequest) => api.put(`/sds/${id}`, data)
 export const deleteSD = (id: number) => api.delete(`/sds/${id}`)
+
+// 克隆
+export const cloneClient = (id: number) => api.post(`/clients/${id}/clone`)
+export const clonePortForward = (id: number) => api.post(`/port-forwards/${id}/clone`)
+export const cloneTunnel = (id: number) => api.post(`/tunnels/${id}/clone`)
+export const cloneProxyChain = (id: number) => api.post(`/proxy-chains/${id}/clone`)
+export const cloneNodeGroup = (id: number) => api.post(`/node-groups/${id}/clone`)
+
+// 配置版本历史
+export const getConfigVersions = (nodeId: number) => api.get(`/nodes/${nodeId}/config-versions`)
+export const createConfigVersion = (nodeId: number, comment: string) => api.post(`/nodes/${nodeId}/config-versions`, { comment })
+export const getConfigVersion = (versionId: number) => api.get(`/config-versions/${versionId}`)
+export const restoreConfigVersion = (versionId: number) => api.post(`/config-versions/${versionId}/restore`)
+export const deleteConfigVersion = (versionId: number) => api.delete(`/config-versions/${versionId}`)
 
 export default api

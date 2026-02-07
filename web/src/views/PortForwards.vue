@@ -83,8 +83,8 @@
 
 <script setup lang="ts">
 import { ref, h, onMounted } from 'vue'
-import { NButton, NSpace, NTag, useMessage, useDialog } from 'naive-ui'
-import { getPortForwards, createPortForward, updatePortForward, deletePortForward, getNodes } from '../api'
+import { NButton, NSpace, NTag, NDropdown, useMessage, useDialog } from 'naive-ui'
+import { getPortForwards, createPortForward, updatePortForward, deletePortForward, clonePortForward, getNodes } from '../api'
 import EmptyState from '../components/EmptyState.vue'
 import TableSkeleton from '../components/TableSkeleton.vue'
 import { useKeyboard } from '../composables/useKeyboard'
@@ -164,12 +164,28 @@ const columns = [
   {
     title: '操作',
     key: 'actions',
-    width: 150,
-    render: (row: any) =>
-      h(NSpace, { size: 'small' }, () => [
+    width: 180,
+    render: (row: any) => {
+      const dropdownOptions = [
+        { label: '克隆', key: 'clone' },
+        { type: 'divider', key: 'd1' },
+        { label: '删除', key: 'delete' },
+      ]
+      const handleSelect = (key: string) => {
+        switch (key) {
+          case 'clone': handleClone(row); break
+          case 'delete': handleDelete(row); break
+        }
+      }
+      return h(NSpace, { size: 'small' }, () => [
         h(NButton, { size: 'small', onClick: () => handleEdit(row) }, () => '编辑'),
-        h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row) }, () => '删除'),
-      ]),
+        h(NDropdown, {
+          options: dropdownOptions,
+          onSelect: handleSelect,
+          trigger: 'click'
+        }, () => h(NButton, { size: 'small' }, () => '更多'))
+      ])
+    }
   },
 ]
 
@@ -254,6 +270,16 @@ const handleDelete = (row: any) => {
       }
     },
   })
+}
+
+const handleClone = async (row: any) => {
+  try {
+    await clonePortForward(row.id)
+    message.success(`转发规则 "${row.name}" 已克隆`)
+    loadPortForwards()
+  } catch {
+    message.error('克隆失败')
+  }
 }
 
 onMounted(() => {

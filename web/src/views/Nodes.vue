@@ -401,13 +401,75 @@
         </n-space>
       </template>
     </n-modal>
+
+    <!-- Config Versions Modal -->
+    <n-modal v-model:show="showVersionsModal" preset="dialog" :title="`配置历史: ${editingNode?.name}`" style="width: 800px;">
+      <n-space vertical size="large">
+        <n-space justify="space-between" align="center">
+          <span>配置快照列表</span>
+          <n-button type="primary" size="small" @click="openCreateVersionModal">
+            创建快照
+          </n-button>
+        </n-space>
+
+        <n-spin :show="versionsLoading">
+          <n-list bordered v-if="configVersions.length > 0">
+            <n-list-item v-for="version in configVersions" :key="version.id">
+              <n-space vertical size="small" style="width: 100%">
+                <n-space justify="space-between" align="center">
+                  <n-space align="center">
+                    <n-tag type="info" size="small">#{{ version.id }}</n-tag>
+                    <n-text>{{ formatTime(version.created_at) }}</n-text>
+                  </n-space>
+                  <n-space>
+                    <n-button size="small" @click="handleViewVersion(version)">查看</n-button>
+                    <n-button size="small" type="primary" @click="handleRestoreVersion(version)">恢复</n-button>
+                    <n-button size="small" type="error" @click="handleDeleteVersion(version)">删除</n-button>
+                  </n-space>
+                </n-space>
+                <n-text depth="3" v-if="version.comment">{{ version.comment }}</n-text>
+              </n-space>
+            </n-list-item>
+          </n-list>
+          <n-empty v-else description="暂无配置快照" />
+        </n-spin>
+      </n-space>
+      <template #action>
+        <n-button @click="showVersionsModal = false">关闭</n-button>
+      </template>
+    </n-modal>
+
+    <!-- Create Version Comment Modal -->
+    <n-modal v-model:show="showVersionCommentModal" preset="dialog" title="创建配置快照" style="width: 500px;">
+      <n-form label-placement="left" label-width="80">
+        <n-form-item label="备注">
+          <n-input v-model:value="versionComment" placeholder="可选：输入此快照的说明" type="textarea" :autosize="{ minRows: 3 }" />
+        </n-form-item>
+      </n-form>
+      <template #action>
+        <n-space>
+          <n-button @click="showVersionCommentModal = false">取消</n-button>
+          <n-button type="primary" @click="handleCreateVersion">创建</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <!-- Version Config Modal -->
+    <n-modal v-model:show="showVersionConfigModal" preset="dialog" title="配置内容" style="width: 700px; max-width: 90vw;">
+      <n-scrollbar x-scrollable style="max-height: 500px;">
+        <n-code :code="currentVersionConfig" language="yaml" word-wrap />
+      </n-scrollbar>
+      <template #action>
+        <n-button @click="navigator.clipboard.writeText(currentVersionConfig); message.success('已复制到剪贴板')">复制</n-button>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, h, onMounted, computed } from 'vue'
-import { NButton, NSpace, NTag, NProgress, NCollapse, NCollapseItem, NInputGroup, NText, NDivider, NTabs, NTabPane, NDropdown, useMessage, useDialog } from 'naive-ui'
-import { getNodesPaginated, createNode, updateNode, deleteNode, getNodeGostConfig, syncNodeConfig, getNodeProxyURI, getTemplates, getTemplateCategories, getNodeInstallScript, getTags, createTag, deleteTag, getNodeTags, setNodeTags, batchDeleteNodes, batchSyncNodes, pingNode, pingAllNodes } from '../api'
+import { NButton, NSpace, NTag, NProgress, NCollapse, NCollapseItem, NInputGroup, NText, NDivider, NTabs, NTabPane, NDropdown, NList, NListItem, NEmpty, NSpin, useMessage, useDialog } from 'naive-ui'
+import { getNodesPaginated, createNode, updateNode, deleteNode, cloneNode, getNodeGostConfig, syncNodeConfig, getNodeProxyURI, getTemplates, getTemplateCategories, getNodeInstallScript, getTags, createTag, deleteTag, getNodeTags, setNodeTags, batchDeleteNodes, batchSyncNodes, pingNode, pingAllNodes, getConfigVersions, createConfigVersion, getConfigVersion, restoreConfigVersion, deleteConfigVersion } from '../api'
 import EmptyState from '../components/EmptyState.vue'
 import TableSkeleton from '../components/TableSkeleton.vue'
 import { useKeyboard } from '../composables/useKeyboard'
@@ -424,6 +486,7 @@ const showConfigModal = ref(false)
 const showTemplateModal = ref(false)
 const showScriptModal = ref(false)
 const showTagModal = ref(false)
+const showVersionsModal = ref(false)
 const scriptOS = ref('linux')
 const scriptLoading = ref(false)
 const currentScriptNodeId = ref<number | null>(null)
@@ -446,6 +509,14 @@ const tags = ref<any[]>([])
 const selectedTagIds = ref<number[]>([])
 const newTagName = ref('')
 const tagColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
+
+// 配置版本历史
+const configVersions = ref<any[]>([])
+const versionsLoading = ref(false)
+const versionComment = ref('')
+const showVersionCommentModal = ref(false)
+const showVersionConfigModal = ref(false)
+const currentVersionConfig = ref('')
 
 // 模板相关
 const templates = ref<any[]>([])
@@ -668,6 +739,8 @@ const columns = [
     width: 240,
     render: (row: any) => {
       const dropdownOptions = [
+        { label: '克隆节点', key: 'clone' },
+        { label: '配置历史', key: 'versions' },
         { label: '安装脚本', key: 'install' },
         { label: '复制 URI', key: 'copy' },
         { label: '同步配置', key: 'sync' },
@@ -679,6 +752,8 @@ const columns = [
       ]
       const handleSelect = (key: string) => {
         switch (key) {
+          case 'clone': handleCloneNode(row); break
+          case 'versions': openVersionsModal(row); break
           case 'install': handleShowScript(row); break
           case 'copy': handleCopyURI(row); break
           case 'sync': handleSyncConfig(row); break
@@ -789,6 +864,16 @@ const handleSave = async () => {
     message.error(e.response?.data?.error || '保存节点失败')
   } finally {
     saving.value = false
+  }
+}
+
+const handleCloneNode = async (row: any) => {
+  try {
+    await cloneNode(row.id)
+    message.success(`节点 "${row.name}" 已克隆`)
+    loadNodes()
+  } catch {
+    message.error('克隆节点失败')
   }
 }
 
@@ -1090,6 +1175,103 @@ const handleBatchSync = async () => {
   } finally {
     batchLoading.value = false
   }
+}
+
+// ==================== 配置版本历史 ====================
+
+const formatTime = (time: string) => {
+  if (!time || time.startsWith('0001')) return '-'
+  const date = new Date(time)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+const openVersionsModal = async (node: any) => {
+  editingNode.value = node
+  showVersionsModal.value = true
+  await loadConfigVersions(node.id)
+}
+
+const loadConfigVersions = async (nodeId: number) => {
+  versionsLoading.value = true
+  try {
+    configVersions.value = await getConfigVersions(nodeId) as unknown as any[]
+  } catch (e) {
+    message.error('加载配置历史失败')
+  } finally {
+    versionsLoading.value = false
+  }
+}
+
+const openCreateVersionModal = () => {
+  versionComment.value = ''
+  showVersionCommentModal.value = true
+}
+
+const handleCreateVersion = async () => {
+  if (!editingNode.value) return
+  try {
+    await createConfigVersion(editingNode.value.id, versionComment.value)
+    message.success('配置快照已创建')
+    showVersionCommentModal.value = false
+    await loadConfigVersions(editingNode.value.id)
+  } catch (e: any) {
+    message.error(e.response?.data?.error || '创建快照失败')
+  }
+}
+
+const handleViewVersion = async (version: any) => {
+  try {
+    const data: any = await getConfigVersion(version.id)
+    currentVersionConfig.value = data.config || ''
+    showVersionConfigModal.value = true
+  } catch (e) {
+    message.error('获取配置失败')
+  }
+}
+
+const handleRestoreVersion = (version: any) => {
+  dialog.warning({
+    title: '恢复配置',
+    content: `确定要恢复到版本 ${version.version} 吗？当前配置将被覆盖。`,
+    positiveText: '恢复',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await restoreConfigVersion(version.id)
+        message.success('配置已恢复')
+        showVersionsModal.value = false
+        loadNodes()
+      } catch (e: any) {
+        message.error(e.response?.data?.error || '恢复配置失败')
+      }
+    },
+  })
+}
+
+const handleDeleteVersion = (version: any) => {
+  dialog.warning({
+    title: '删除快照',
+    content: `确定要删除版本 ${version.version} 吗？`,
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await deleteConfigVersion(version.id)
+        message.success('快照已删除')
+        if (editingNode.value) {
+          await loadConfigVersions(editingNode.value.id)
+        }
+      } catch (e: any) {
+        message.error(e.response?.data?.error || '删除快照失败')
+      }
+    },
+  })
 }
 
 onMounted(() => {

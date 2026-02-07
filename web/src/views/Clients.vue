@@ -194,7 +194,7 @@
 <script setup lang="ts">
 import { ref, h, onMounted } from 'vue'
 import { NButton, NSpace, NTag, NTabs, NTabPane, NDropdown, NDivider, useMessage, useDialog } from 'naive-ui'
-import { getClientsPaginated, createClient, updateClient, deleteClient, getClientInstallScript, getClientGostConfig, getClientProxyURI, getNodes, batchDeleteClients } from '../api'
+import { getClientsPaginated, createClient, updateClient, deleteClient, getClientInstallScript, getClientGostConfig, getClientProxyURI, getNodes, batchDeleteClients, cloneClient } from '../api'
 import EmptyState from '../components/EmptyState.vue'
 import TableSkeleton from '../components/TableSkeleton.vue'
 import { useKeyboard } from '../composables/useKeyboard'
@@ -308,6 +308,7 @@ const columns = [
     width: 200,
     render: (row: any) => {
       const dropdownOptions = [
+        { label: '克隆客户端', key: 'clone' },
         { label: '安装脚本', key: 'install' },
         { label: '复制 URI', key: 'copy' },
         { label: '查看配置', key: 'config' },
@@ -316,6 +317,7 @@ const columns = [
       ]
       const handleSelect = (key: string) => {
         switch (key) {
+          case 'clone': handleCloneClient(row); break
           case 'install': handleShowScript(row); break
           case 'copy': handleCopyURI(row); break
           case 'config': handleShowConfig(row); break
@@ -454,6 +456,16 @@ const handleDelete = (row: any) => {
       }
     },
   })
+}
+
+const handleCloneClient = async (row: any) => {
+  try {
+    await cloneClient(row.id)
+    message.success(`客户端 "${row.name}" 已克隆`)
+    loadClients()
+  } catch {
+    message.error('克隆客户端失败')
+  }
 }
 
 const handleShowScript = async (row: any) => {

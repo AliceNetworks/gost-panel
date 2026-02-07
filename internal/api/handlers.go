@@ -356,6 +356,284 @@ func (s *Server) applyNodeConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
+func (s *Server) cloneNode(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	userID, isAdmin := getUserInfo(c)
+
+	node, err := s.svc.GetNodeByOwner(uint(id), userID, isAdmin)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
+		return
+	}
+
+	cloned := &model.Node{
+		Name:             node.Name + " (副本)",
+		Host:             node.Host,
+		Port:             node.Port + 1,
+		APIPort:          node.APIPort + 1,
+		APIUser:          node.APIUser,
+		APIPass:          node.APIPass,
+		ProxyUser:        node.ProxyUser,
+		ProxyPass:        node.ProxyPass,
+		Protocol:         node.Protocol,
+		Transport:        node.Transport,
+		TransportOpts:    node.TransportOpts,
+		SSMethod:         node.SSMethod,
+		SSPassword:       node.SSPassword,
+		TrojanPassword:   node.TrojanPassword,
+		VMessUUID:        node.VMessUUID,
+		VMessAlterID:     node.VMessAlterID,
+		TLSEnabled:       node.TLSEnabled,
+		TLSCertFile:      node.TLSCertFile,
+		TLSKeyFile:       node.TLSKeyFile,
+		TLSSNI:           node.TLSSNI,
+		TLSALPN:          node.TLSALPN,
+		WSPath:           node.WSPath,
+		WSHost:           node.WSHost,
+		SpeedLimit:       node.SpeedLimit,
+		ConnRateLimit:    node.ConnRateLimit,
+		DNSServer:        node.DNSServer,
+		ProxyProtocol:    node.ProxyProtocol,
+		ProbeResist:      node.ProbeResist,
+		ProbeResistValue: node.ProbeResistValue,
+		PluginConfig:     node.PluginConfig,
+		TrafficQuota:     node.TrafficQuota,
+		QuotaResetDay:    node.QuotaResetDay,
+		OwnerID:          &userID,
+	}
+
+	if err := s.svc.CreateNode(cloned); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	s.audit.LogSuccess(c, "clone", "node", cloned.ID, fmt.Sprintf("from #%d", node.ID))
+	c.JSON(http.StatusOK, cloned)
+}
+
+func (s *Server) cloneClient(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	userID, isAdmin := getUserInfo(c)
+
+	client, err := s.svc.GetClientByOwner(uint(id), userID, isAdmin)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "client not found"})
+		return
+	}
+
+	cloned := &model.Client{
+		Name:          client.Name + " (副本)",
+		NodeID:        client.NodeID,
+		LocalPort:     client.LocalPort + 1,
+		RemotePort:    client.RemotePort + 1,
+		ProxyUser:     client.ProxyUser,
+		ProxyPass:     client.ProxyPass,
+		TrafficQuota:  client.TrafficQuota,
+		QuotaResetDay: client.QuotaResetDay,
+		OwnerID:       &userID,
+	}
+
+	if err := s.svc.CreateClient(cloned); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	s.audit.LogSuccess(c, "clone", "client", cloned.ID, fmt.Sprintf("from #%d", client.ID))
+	c.JSON(http.StatusOK, cloned)
+}
+
+func (s *Server) clonePortForward(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	userID, isAdmin := getUserInfo(c)
+
+	forward, err := s.svc.GetPortForward(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "port forward not found"})
+		return
+	}
+
+	// 检查权限
+	if !isAdmin && forward.OwnerID != nil && *forward.OwnerID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+		return
+	}
+
+	// 解析地址以递增端口
+	localAddr := forward.LocalAddr
+	if host, port, err := net.SplitHostPort(forward.LocalAddr); err == nil {
+		if p, err := strconv.Atoi(port); err == nil {
+			localAddr = net.JoinHostPort(host, strconv.Itoa(p+1))
+		}
+	}
+
+	cloned := &model.PortForward{
+		Name:       forward.Name + " (副本)",
+		NodeID:     forward.NodeID,
+		Type:       forward.Type,
+		LocalAddr:  localAddr,
+		RemoteAddr: forward.RemoteAddr,
+		ChainID:    forward.ChainID,
+		Enabled:    forward.Enabled,
+		OwnerID:    &userID,
+	}
+
+	if err := s.svc.CreatePortForward(cloned); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	s.audit.LogSuccess(c, "clone", "port_forward", cloned.ID, fmt.Sprintf("from #%d", forward.ID))
+	c.JSON(http.StatusOK, cloned)
+}
+
+func (s *Server) cloneTunnel(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	userID, isAdmin := getUserInfo(c)
+
+	tunnel, err := s.svc.GetTunnel(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "tunnel not found"})
+		return
+	}
+
+	// 检查权限
+	if !isAdmin && tunnel.OwnerID != nil && *tunnel.OwnerID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+		return
+	}
+
+	cloned := &model.Tunnel{
+		Name:          tunnel.Name + " (副本)",
+		Description:   tunnel.Description,
+		EntryNodeID:   tunnel.EntryNodeID,
+		EntryPort:     tunnel.EntryPort + 1,
+		Protocol:      tunnel.Protocol,
+		ExitNodeID:    tunnel.ExitNodeID,
+		TargetAddr:    tunnel.TargetAddr,
+		Enabled:       tunnel.Enabled,
+		TrafficQuota:  tunnel.TrafficQuota,
+		QuotaResetDay: tunnel.QuotaResetDay,
+		SpeedLimit:    tunnel.SpeedLimit,
+		OwnerID:       &userID,
+	}
+
+	if err := s.svc.CreateTunnel(cloned); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	s.audit.LogSuccess(c, "clone", "tunnel", cloned.ID, fmt.Sprintf("from #%d", tunnel.ID))
+	c.JSON(http.StatusOK, cloned)
+}
+
+func (s *Server) cloneProxyChain(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	userID, isAdmin := getUserInfo(c)
+
+	chain, err := s.svc.GetProxyChain(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "proxy chain not found"})
+		return
+	}
+
+	// 检查权限
+	if !isAdmin && chain.OwnerID != nil && *chain.OwnerID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+		return
+	}
+
+	// 解析监听地址以递增端口
+	listenAddr := chain.ListenAddr
+	if host, port, err := net.SplitHostPort(chain.ListenAddr); err == nil {
+		if p, err := strconv.Atoi(port); err == nil {
+			listenAddr = net.JoinHostPort(host, strconv.Itoa(p+1))
+		}
+	}
+
+	cloned := &model.ProxyChain{
+		Name:        chain.Name + " (副本)",
+		Description: chain.Description,
+		ListenAddr:  listenAddr,
+		ListenType:  chain.ListenType,
+		TargetAddr:  chain.TargetAddr,
+		Enabled:     chain.Enabled,
+		OwnerID:     &userID,
+	}
+
+	if err := s.svc.CreateProxyChain(cloned); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 克隆跳点
+	hops, err := s.svc.GetProxyChainHops(uint(id))
+	if err == nil {
+		for _, hop := range hops {
+			clonedHop := &model.ProxyChainHop{
+				ChainID:  cloned.ID,
+				NodeID:   hop.NodeID,
+				HopOrder: hop.HopOrder,
+				Enabled:  hop.Enabled,
+			}
+			s.svc.AddProxyChainHop(clonedHop)
+		}
+	}
+
+	s.audit.LogSuccess(c, "clone", "proxy_chain", cloned.ID, fmt.Sprintf("from #%d", chain.ID))
+	c.JSON(http.StatusOK, cloned)
+}
+
+func (s *Server) cloneNodeGroup(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	userID, isAdmin := getUserInfo(c)
+
+	group, err := s.svc.GetNodeGroup(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "node group not found"})
+		return
+	}
+
+	// 检查权限
+	if !isAdmin && group.OwnerID != nil && *group.OwnerID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+		return
+	}
+
+	cloned := &model.NodeGroup{
+		Name:          group.Name + " (副本)",
+		Strategy:      group.Strategy,
+		Selector:      group.Selector,
+		FailTimeout:   group.FailTimeout,
+		MaxFails:      group.MaxFails,
+		HealthCheck:   group.HealthCheck,
+		CheckInterval: group.CheckInterval,
+		OwnerID:       &userID,
+	}
+
+	if err := s.svc.CreateNodeGroup(cloned); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 克隆成员
+	members, err := s.svc.ListNodeGroupMembers(uint(id))
+	if err == nil {
+		for _, member := range members {
+			clonedMember := &model.NodeGroupMember{
+				GroupID:  cloned.ID,
+				NodeID:   member.NodeID,
+				Weight:   member.Weight,
+				Priority: member.Priority,
+				Enabled:  member.Enabled,
+			}
+			s.svc.AddNodeGroupMember(clonedMember)
+		}
+	}
+
+	s.audit.LogSuccess(c, "clone", "node_group", cloned.ID, fmt.Sprintf("from #%d", group.ID))
+	c.JSON(http.StatusOK, cloned)
+}
+
 func (s *Server) syncNodeConfig(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
 
@@ -372,6 +650,21 @@ func (s *Server) syncNodeConfig(c *gin.Context) {
 			"message": "节点离线，请等待 Agent 上线后自动同步配置",
 		})
 		return
+	}
+
+	// 生成配置并自动保存版本快照
+	generator := gost.NewConfigGenerator()
+	bypasses, _ := s.svc.GetBypassesByNode(node.ID)
+	admissions, _ := s.svc.GetAdmissionsByNode(node.ID)
+	hostMappings, _ := s.svc.GetHostMappingsByNode(node.ID)
+	ingresses, _ := s.svc.GetIngressesByNode(node.ID)
+	config := generator.GenerateNodeConfigWithRules(node, bypasses, admissions, hostMappings, ingresses)
+
+	// 将配置序列化为 YAML 字符串并保存版本
+	configYAML, err := yaml.Marshal(config)
+	if err == nil {
+		s.svc.SaveConfigVersion(uint(id), string(configYAML), "Auto-saved on sync")
+		s.svc.CleanupOldVersions(uint(id), 20) // 保留最新 20 个版本
 	}
 
 	// 标记节点需要重新加载配置（通过更新 updated_at）
@@ -3715,5 +4008,140 @@ func (s *Server) deleteSD(c *gin.Context) {
 		return
 	}
 	s.audit.LogSuccess(c, "delete", "sd", uint(id), "")
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// ==================== ConfigVersion 配置版本历史 ====================
+
+func (s *Server) getConfigVersions(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+
+	versions, err := s.svc.GetConfigVersions(uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, versions)
+}
+
+func (s *Server) createConfigVersion(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+
+	var req struct {
+		Comment string `json:"comment"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 获取节点配置
+	node, err := s.svc.GetNode(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
+		return
+	}
+
+	// 生成 YAML 配置
+	generator := gost.NewConfigGenerator()
+	bypasses, _ := s.svc.GetBypassesByNode(node.ID)
+	admissions, _ := s.svc.GetAdmissionsByNode(node.ID)
+	hostMappings, _ := s.svc.GetHostMappingsByNode(node.ID)
+	ingresses, _ := s.svc.GetIngressesByNode(node.ID)
+	config := generator.GenerateNodeConfigWithRules(node, bypasses, admissions, hostMappings, ingresses)
+
+	// 将配置序列化为 YAML 字符串
+	configYAML, err := yaml.Marshal(config)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to serialize config"})
+		return
+	}
+
+	// 保存版本
+	if err := s.svc.SaveConfigVersion(uint(id), string(configYAML), req.Comment); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 清理旧版本（保留最新 20 个）
+	s.svc.CleanupOldVersions(uint(id), 20)
+
+	s.audit.LogSuccess(c, "create", "config_version", uint(id), req.Comment)
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (s *Server) getConfigVersion(c *gin.Context) {
+	versionID, _ := strconv.ParseUint(c.Param("versionId"), 10, 32)
+
+	version, err := s.svc.GetConfigVersion(uint(versionID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "version not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, version)
+}
+
+func (s *Server) restoreConfigVersion(c *gin.Context) {
+	versionID, _ := strconv.ParseUint(c.Param("versionId"), 10, 32)
+
+	version, err := s.svc.GetConfigVersion(uint(versionID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "version not found"})
+		return
+	}
+
+	// 获取节点信息
+	node, err := s.svc.GetNode(version.NodeID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
+		return
+	}
+
+	// 检查节点是否在线
+	if node.Status != "online" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "node is offline",
+			"message": "节点离线，无法恢复配置",
+		})
+		return
+	}
+
+	// 解析 YAML 配置
+	var config interface{}
+	if err := yaml.Unmarshal([]byte(version.Config), &config); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid config format"})
+		return
+	}
+
+	// 获取 GOST API 客户端
+	client, err := s.svc.GetGostClient(version.NodeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to connect to GOST"})
+		return
+	}
+
+	// 应用配置到 GOST（使用 GOST API 重新加载配置）
+	if err := client.ReloadConfig(config); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to restore config: %v", err)})
+		return
+	}
+
+	s.audit.LogSuccess(c, "restore", "config_version", uint(versionID), fmt.Sprintf("restored to node #%d", version.NodeID))
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "配置已恢复",
+	})
+}
+
+func (s *Server) deleteConfigVersion(c *gin.Context) {
+	versionID, _ := strconv.ParseUint(c.Param("versionId"), 10, 32)
+
+	if err := s.svc.DeleteConfigVersion(uint(versionID)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	s.audit.LogSuccess(c, "delete", "config_version", uint(versionID), "")
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }

@@ -395,3 +395,10 @@ export type RouterCreateRequest = Record<string, unknown>
 export type RouterUpdateRequest = Record<string, unknown>
 export type SDCreateRequest = Record<string, unknown>
 export type SDUpdateRequest = Record<string, unknown>
+
+// 配置版本历史
+export interface ConfigVersion extends BaseEntity {
+  node_id: number
+  config: string
+  comment?: string
+}

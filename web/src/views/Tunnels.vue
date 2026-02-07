@@ -139,8 +139,8 @@
 
 <script setup lang="ts">
 import { ref, h, onMounted, computed } from 'vue'
-import { NButton, NSpace, NTag, useMessage, useDialog } from 'naive-ui'
-import { getTunnels, createTunnel, updateTunnel, deleteTunnel, syncTunnel, getTunnelEntryConfig, getTunnelExitConfig, getNodes } from '../api'
+import { NButton, NSpace, NTag, NDropdown, useMessage, useDialog } from 'naive-ui'
+import { getTunnels, createTunnel, updateTunnel, deleteTunnel, syncTunnel, getTunnelEntryConfig, getTunnelExitConfig, cloneTunnel, getNodes } from '../api'
 import EmptyState from '../components/EmptyState.vue'
 import TableSkeleton from '../components/TableSkeleton.vue'
 
@@ -246,14 +246,30 @@ const columns = [
   {
     title: '操作',
     key: 'actions',
-    width: 280,
-    render: (row: any) =>
-      h(NSpace, { size: 'small' }, () => [
+    width: 320,
+    render: (row: any) => {
+      const dropdownOptions = [
+        { label: '克隆隧道', key: 'clone' },
+        { type: 'divider', key: 'd1' },
+        { label: '删除', key: 'delete' },
+      ]
+      const handleSelect = (key: string) => {
+        switch (key) {
+          case 'clone': handleClone(row); break
+          case 'delete': handleDelete(row); break
+        }
+      }
+      return h(NSpace, { size: 'small' }, () => [
         h(NButton, { size: 'small', onClick: () => handleEdit(row) }, () => '编辑'),
         h(NButton, { size: 'small', type: 'primary', onClick: () => handleSync(row) }, () => '同步'),
         h(NButton, { size: 'small', type: 'info', onClick: () => handleShowConfig(row) }, () => '配置'),
-        h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row) }, () => '删除'),
-      ]),
+        h(NDropdown, {
+          options: dropdownOptions,
+          onSelect: handleSelect,
+          trigger: 'click'
+        }, () => h(NButton, { size: 'small' }, () => '更多'))
+      ])
+    }
   },
 ]
 
@@ -371,6 +387,16 @@ const handleDelete = (row: any) => {
       }
     },
   })
+}
+
+const handleClone = async (row: any) => {
+  try {
+    await cloneTunnel(row.id)
+    message.success(`隧道 "${row.name}" 已克隆`)
+    loadTunnels()
+  } catch {
+    message.error('克隆隧道失败')
+  }
 }
 
 const handleShowConfig = async (row: any) => {

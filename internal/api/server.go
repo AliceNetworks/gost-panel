@@ -149,12 +149,20 @@ func (s *Server) setupRoutes() {
 			auth.PUT("/nodes/:id", s.updateNode)
 			auth.DELETE("/nodes/:id", s.deleteNode)
 			auth.POST("/nodes/:id/apply", s.applyNodeConfig)
+			auth.POST("/nodes/:id/clone", s.cloneNode)
 			auth.POST("/nodes/:id/sync", s.syncNodeConfig)
 			auth.GET("/nodes/:id/gost-config", s.getNodeGostConfig)
 			auth.GET("/nodes/:id/proxy-uri", s.getNodeProxyURI)
 			auth.GET("/nodes/:id/install-script", s.getNodeInstallScript)
 			auth.GET("/nodes/:id/ping", s.pingNode)
 			auth.GET("/nodes/ping", s.pingAllNodes)
+
+			// 节点配置版本历史
+			auth.GET("/nodes/:id/config-versions", s.getConfigVersions)
+			auth.POST("/nodes/:id/config-versions", s.createConfigVersion)
+			auth.GET("/config-versions/:versionId", s.getConfigVersion)
+			auth.POST("/config-versions/:versionId/restore", s.restoreConfigVersion)
+			auth.DELETE("/config-versions/:versionId", s.deleteConfigVersion)
 
 			// 节点批量操作
 			auth.POST("/nodes/batch-delete", s.batchDeleteNodes)
@@ -170,6 +178,7 @@ func (s *Server) setupRoutes() {
 			auth.GET("/clients/:id/install-script", s.getClientInstallScript)
 			auth.GET("/clients/:id/gost-config", s.getClientGostConfig)
 			auth.GET("/clients/:id/proxy-uri", s.getClientProxyURI)
+			auth.POST("/clients/:id/clone", s.cloneClient)
 
 			// 客户端批量操作
 			auth.POST("/clients/batch-delete", s.batchDeleteClients)
@@ -224,6 +233,7 @@ func (s *Server) setupRoutes() {
 			auth.GET("/port-forwards/:id", s.getPortForward)
 			auth.PUT("/port-forwards/:id", s.updatePortForward)
 			auth.DELETE("/port-forwards/:id", s.deletePortForward)
+			auth.POST("/port-forwards/:id/clone", s.clonePortForward)
 
 			// 节点组 (负载均衡)
 			auth.GET("/node-groups", s.listNodeGroups)
@@ -235,6 +245,7 @@ func (s *Server) setupRoutes() {
 			auth.POST("/node-groups/:id/members", s.addNodeGroupMember)
 			auth.DELETE("/node-groups/:id/members/:memberId", s.removeNodeGroupMember)
 			auth.GET("/node-groups/:id/config", s.getNodeGroupConfig)
+			auth.POST("/node-groups/:id/clone", s.cloneNodeGroup)
 
 			// 代理链/隧道转发
 			auth.GET("/proxy-chains", s.listProxyChains)
@@ -247,6 +258,7 @@ func (s *Server) setupRoutes() {
 			auth.PUT("/proxy-chains/:id/hops/:hopId", s.updateProxyChainHop)
 			auth.DELETE("/proxy-chains/:id/hops/:hopId", s.removeProxyChainHop)
 			auth.GET("/proxy-chains/:id/config", s.getProxyChainConfig)
+			auth.POST("/proxy-chains/:id/clone", s.cloneProxyChain)
 
 			// 隧道转发 (入口-出口模式)
 			auth.GET("/tunnels", s.listTunnels)
@@ -257,6 +269,7 @@ func (s *Server) setupRoutes() {
 			auth.POST("/tunnels/:id/sync", s.syncTunnel)
 			auth.GET("/tunnels/:id/entry-config", s.getTunnelEntryConfig)
 			auth.GET("/tunnels/:id/exit-config", s.getTunnelExitConfig)
+			auth.POST("/tunnels/:id/clone", s.cloneTunnel)
 
 			// 预配置模板
 			auth.GET("/templates", s.listTemplates)

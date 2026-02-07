@@ -450,6 +450,15 @@ type SD struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// ConfigVersion 配置版本历史
+type ConfigVersion struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	NodeID    uint      `gorm:"index;not null" json:"node_id"`
+	Config    string    `gorm:"type:text;not null" json:"config"` // YAML 配置快照
+	Comment   string    `gorm:"size:255" json:"comment"`          // 版本说明
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // SiteConfig 网站配置
 type SiteConfig struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
@@ -474,7 +483,7 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 	}
 
 	// 自动迁移
-	if err := db.AutoMigrate(&Node{}, &Client{}, &Service{}, &User{}, &Plan{}, &TrafficHistory{}, &NotifyChannel{}, &AlertRule{}, &AlertLog{}, &PortForward{}, &NodeGroup{}, &NodeGroupMember{}, &DNSConfig{}, &OperationLog{}, &ProxyChain{}, &ProxyChainHop{}, &Tunnel{}, &SiteConfig{}, &Tag{}, &NodeTag{}, &Bypass{}, &Admission{}, &HostMapping{}, &Ingress{}, &Recorder{}, &Router{}, &SD{}); err != nil {
+	if err := db.AutoMigrate(&Node{}, &Client{}, &Service{}, &User{}, &Plan{}, &TrafficHistory{}, &NotifyChannel{}, &AlertRule{}, &AlertLog{}, &PortForward{}, &NodeGroup{}, &NodeGroupMember{}, &DNSConfig{}, &OperationLog{}, &ProxyChain{}, &ProxyChainHop{}, &Tunnel{}, &SiteConfig{}, &Tag{}, &NodeTag{}, &Bypass{}, &Admission{}, &HostMapping{}, &Ingress{}, &Recorder{}, &Router{}, &SD{}, &ConfigVersion{}); err != nil {
 		return nil, err
 	}
 

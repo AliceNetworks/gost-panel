@@ -347,6 +347,12 @@ func (c *Client) SyncConfig(config map[string]interface{}) error {
 	return nil
 }
 
+// ReloadConfig 重新加载完整配置到 GOST
+func (c *Client) ReloadConfig(config interface{}) error {
+	// 使用 PUT /config 来重新加载整个配置
+	return c.put("/config", config)
+}
+
 // Ping 测试连接
 func (c *Client) Ping() error {
 	_, err := c.GetConfig()
