@@ -20,8 +20,8 @@ RUN go mod download
 # 复制源码
 COPY . .
 
-# 复制前端构建产物
-COPY --from=frontend /app/web/dist /app/web/dist
+# 复制前端构建产物 (vite outDir: ../internal/api/dist)
+COPY --from=frontend /app/internal/api/dist /app/internal/api/dist
 
 # 构建后端 (带版本信息)
 ARG VERSION=dev
