@@ -99,19 +99,97 @@
     </n-modal>
 
     <!-- Account Settings Modal -->
-    <n-modal v-model:show="showAccountModal" preset="dialog" :title="t('auth.accountSettings')" style="width: 500px;">
-      <n-form :model="profileForm" label-placement="left" label-width="100">
-        <n-form-item :label="t('auth.username')">
-          <n-input :value="userStore.user?.username" disabled />
-        </n-form-item>
-        <n-form-item :label="t('auth.email')">
-          <n-input v-model:value="profileForm.email" placeholder="user@example.com" />
+    <n-modal v-model:show="showAccountModal" preset="dialog" :title="t('auth.accountSettings')" style="width: 600px;">
+      <n-tabs type="line" animated>
+        <n-tab-pane name="profile" tab="个人信息">
+          <n-form :model="profileForm" label-placement="left" label-width="100">
+            <n-form-item :label="t('auth.username')">
+              <n-input :value="userStore.user?.username" disabled />
+            </n-form-item>
+            <n-form-item :label="t('auth.email')">
+              <n-input v-model:value="profileForm.email" placeholder="user@example.com" />
+            </n-form-item>
+          </n-form>
+          <div style="margin-top: 16px; text-align: right;">
+            <n-space>
+              <n-button @click="showAccountModal = false">{{ t('common.cancel') }}</n-button>
+              <n-button type="primary" :loading="savingProfile" @click="handleSaveProfile">{{ t('common.save') }}</n-button>
+            </n-space>
+          </div>
+        </n-tab-pane>
+
+        <n-tab-pane name="2fa" tab="双因素认证">
+          <div v-if="!twoFactorEnabled">
+            <n-alert type="info" title="未启用 2FA" style="margin-bottom: 16px;">
+              启用双因素认证可以提高账户安全性。
+            </n-alert>
+            <n-button type="primary" @click="start2FASetup" :loading="loading2FA">启用 2FA</n-button>
+          </div>
+
+          <div v-else>
+            <n-alert type="success" title="已启用 2FA" style="margin-bottom: 16px;">
+              您的账户已受到双因素认证保护。
+            </n-alert>
+            <n-button type="warning" @click="show2FADisableModal = true">禁用 2FA</n-button>
+          </div>
+        </n-tab-pane>
+      </n-tabs>
+    </n-modal>
+
+    <!-- 2FA Setup Modal -->
+    <n-modal v-model:show="show2FASetupModal" preset="dialog" title="启用双因素认证" style="width: 500px;">
+      <div v-if="!twoFactorVerified">
+        <n-space vertical>
+          <div style="text-align: center;">
+            <p>1. 使用验证器 App 扫描二维码</p>
+            <p style="font-size: 12px; color: #999;">推荐: Google Authenticator, Microsoft Authenticator</p>
+            <img v-if="qrCode" :src="qrCode" style="max-width: 200px; margin: 16px 0;" />
+          </div>
+          <div style="text-align: center;">
+            <p>或手动输入密钥:</p>
+            <n-input :value="twoFactorSecret" readonly type="textarea" :autosize="{ minRows: 2, maxRows: 3 }" />
+          </div>
+          <div>
+            <p>2. 输入验证器生成的 6 位数字验证码:</p>
+            <n-input v-model:value="verifyCode" placeholder="000000" maxlength="6" />
+          </div>
+        </n-space>
+      </div>
+      <div v-else>
+        <n-alert type="success" title="2FA 已启用" style="margin-bottom: 16px;">
+          请妥善保存以下备份码，每个备份码只能使用一次。
+        </n-alert>
+        <n-space vertical>
+          <div v-for="(code, idx) in backupCodes" :key="idx" style="font-family: monospace; padding: 4px 8px; background: rgba(128,128,128,0.1); border-radius: 4px;">
+            {{ code }}
+          </div>
+        </n-space>
+      </div>
+      <template #action>
+        <n-space v-if="!twoFactorVerified">
+          <n-button @click="cancel2FASetup">取消</n-button>
+          <n-button type="primary" :loading="loading2FA" @click="verify2FACode">验证并启用</n-button>
+        </n-space>
+        <n-space v-else>
+          <n-button type="primary" @click="finish2FASetup">完成</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <!-- 2FA Disable Modal -->
+    <n-modal v-model:show="show2FADisableModal" preset="dialog" title="禁用双因素认证">
+      <n-alert type="warning" title="警告" style="margin-bottom: 16px;">
+        禁用 2FA 将降低您的账户安全性。
+      </n-alert>
+      <n-form>
+        <n-form-item label="当前密码">
+          <n-input v-model:value="disable2FAPassword" type="password" placeholder="请输入当前密码以确认" />
         </n-form-item>
       </n-form>
       <template #action>
         <n-space>
-          <n-button @click="showAccountModal = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" :loading="savingProfile" @click="handleSaveProfile">{{ t('common.save') }}</n-button>
+          <n-button @click="show2FADisableModal = false">取消</n-button>
+          <n-button type="warning" :loading="loading2FA" @click="confirmDisable2FA">确认禁用</n-button>
         </n-space>
       </template>
     </n-modal>
@@ -144,7 +222,7 @@ import {
 } from '@vicons/ionicons5'
 import { useUserStore } from '../stores/user'
 import { useThemeStore } from '../stores/theme'
-import { changePassword, getPublicSiteConfig, getProfile, updateProfile, getHealthInfo } from '../api'
+import { changePassword, getPublicSiteConfig, getProfile, updateProfile, getHealthInfo, enable2FA, verify2FA, disable2FA } from '../api'
 import GlobalSearch from '../components/GlobalSearch.vue'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
@@ -188,6 +266,18 @@ const passwordForm = ref({
 const profileForm = ref({
   email: '',
 })
+
+// 2FA state
+const show2FASetupModal = ref(false)
+const show2FADisableModal = ref(false)
+const loading2FA = ref(false)
+const twoFactorEnabled = ref(false)
+const twoFactorSecret = ref('')
+const qrCode = ref('')
+const verifyCode = ref('')
+const twoFactorVerified = ref(false)
+const backupCodes = ref<string[]>([])
+const disable2FAPassword = ref('')
 
 const renderIcon = (icon: any) => () => h(NIcon, null, { default: () => h(icon) })
 
@@ -339,6 +429,7 @@ const loadProfile = async () => {
     profileForm.value = {
       email: user.email || '',
     }
+    twoFactorEnabled.value = user.two_factor_enabled || false
   } catch {
     message.error(t('auth.loadProfileFailed'))
   }
@@ -373,6 +464,79 @@ const handleChangePassword = async () => {
     message.error(e.response?.data?.error || t('auth.loginFailed'))
   } finally {
     changingPassword.value = false
+  }
+}
+
+// 2FA functions
+const start2FASetup = async () => {
+  loading2FA.value = true
+  try {
+    const res: any = await enable2FA()
+    twoFactorSecret.value = res.secret
+    qrCode.value = res.qrcode
+    show2FASetupModal.value = true
+  } catch (e: any) {
+    message.error(e.response?.data?.error || '启用 2FA 失败')
+  } finally {
+    loading2FA.value = false
+  }
+}
+
+const verify2FACode = async () => {
+  if (!verifyCode.value || verifyCode.value.length !== 6) {
+    message.error('请输入 6 位验证码')
+    return
+  }
+
+  loading2FA.value = true
+  try {
+    const res: any = await verify2FA(verifyCode.value)
+    backupCodes.value = res.backup_codes || []
+    twoFactorVerified.value = true
+    twoFactorEnabled.value = true
+    message.success('2FA 已启用')
+  } catch (e: any) {
+    message.error(e.response?.data?.error || '验证码错误')
+  } finally {
+    loading2FA.value = false
+  }
+}
+
+const finish2FASetup = () => {
+  show2FASetupModal.value = false
+  twoFactorVerified.value = false
+  twoFactorSecret.value = ''
+  qrCode.value = ''
+  verifyCode.value = ''
+  backupCodes.value = []
+  loadProfile()
+}
+
+const cancel2FASetup = () => {
+  show2FASetupModal.value = false
+  twoFactorVerified.value = false
+  twoFactorSecret.value = ''
+  qrCode.value = ''
+  verifyCode.value = ''
+}
+
+const confirmDisable2FA = async () => {
+  if (!disable2FAPassword.value) {
+    message.error('请输入密码')
+    return
+  }
+
+  loading2FA.value = true
+  try {
+    await disable2FA(disable2FAPassword.value)
+    twoFactorEnabled.value = false
+    show2FADisableModal.value = false
+    disable2FAPassword.value = ''
+    message.success('2FA 已禁用')
+  } catch (e: any) {
+    message.error(e.response?.data?.error || '禁用失败')
+  } finally {
+    loading2FA.value = false
   }
 }
 
