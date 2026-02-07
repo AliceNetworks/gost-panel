@@ -263,6 +263,7 @@ export const getClientTemplate = (id: string) => api.get(`/client-templates/${id
 
 // 网站配置
 export const getPublicSiteConfig = () => axios.get('/api/site-config').then(r => r.data)
+export const getHealthInfo = () => axios.get('/api/health').then(r => r.data)
 export const getSiteConfigs = () => api.get('/site-configs')
 export const updateSiteConfigs = (data: Record<string, string>) => api.put('/site-configs', data)
 

@@ -30,6 +30,10 @@
         :value="currentMenu"
         @update:value="handleMenuSelect"
       />
+      <div class="sidebar-version" :class="{ 'collapsed': collapsed }">
+        <span v-if="!collapsed">{{ panelVersion }}</span>
+        <span v-else>{{ panelVersion.split(' ').pop() }}</span>
+      </div>
     </n-layout-sider>
     <n-layout>
       <n-layout-header bordered class="header">
@@ -132,7 +136,7 @@ import {
 } from '@vicons/ionicons5'
 import { useUserStore } from '../stores/user'
 import { useThemeStore } from '../stores/theme'
-import { changePassword, getPublicSiteConfig, getProfile, updateProfile } from '../api'
+import { changePassword, getPublicSiteConfig, getProfile, updateProfile, getHealthInfo } from '../api'
 import GlobalSearch from '../components/GlobalSearch.vue'
 import { useMessage } from 'naive-ui'
 
@@ -155,6 +159,7 @@ const checkMobile = () => {
 }
 
 const collapsed = ref(false)
+const panelVersion = ref('')
 const showPasswordModal = ref(false)
 const showAccountModal = ref(false)
 const changingPassword = ref(false)
@@ -376,8 +381,19 @@ const loadSiteConfig = async () => {
   }
 }
 
+// 加载版本信息
+const loadVersion = async () => {
+  try {
+    const data = await getHealthInfo()
+    panelVersion.value = `GOST Panel ${data.version || ''}`
+  } catch {
+    panelVersion.value = 'GOST Panel'
+  }
+}
+
 onMounted(() => {
   loadSiteConfig()
+  loadVersion()
   checkMobile()
   window.addEventListener('resize', checkMobile)
 })
@@ -405,6 +421,27 @@ onUnmounted(() => {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   letter-spacing: -0.5px;
+}
+
+.sidebar-version {
+  padding: 12px 16px;
+  font-size: 11px;
+  color: rgba(128, 128, 128, 0.6);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: auto;
+}
+
+.sidebar-version.collapsed {
+  padding: 12px 4px;
+  font-size: 10px;
+}
+
+:deep(.n-layout-sider-scroll-container) {
+  display: flex;
+  flex-direction: column;
 }
 
 .header {

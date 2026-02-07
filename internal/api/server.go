@@ -846,7 +846,7 @@ func (s *Server) healthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":         "ok",
 		"database":       dbStatusStr,
-		"version":        "1.4.0",
+		"version":        CurrentAgentVersion,
 		"nodes":          nodeCount,
 		"online_nodes":   onlineNodes,
 		"clients":        clientCount,

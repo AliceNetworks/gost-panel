@@ -103,8 +103,8 @@
           </n-space>
         </n-form-item>
 
-        <n-form-item label="当前 Agent 版本">
-          <n-text>v1.3.0</n-text>
+        <n-form-item label="当前 Panel 版本">
+          <n-text>{{ panelVersion }}</n-text>
         </n-form-item>
       </n-form>
 
@@ -186,7 +186,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useMessage, useDialog } from 'naive-ui'
-import { getSiteConfigs, updateSiteConfigs, exportData, importData, backupDatabase, restoreDatabase } from '../api'
+import { getSiteConfigs, updateSiteConfigs, exportData, importData, backupDatabase, restoreDatabase, getHealthInfo } from '../api'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -195,6 +195,7 @@ const exporting = ref(false)
 const importing = ref(false)
 const backingUp = ref(false)
 const restoring = ref(false)
+const panelVersion = ref('loading...')
 const exportType = ref<'all' | 'nodes' | 'clients'>('all')
 
 const exportTypeOptions = [
@@ -351,8 +352,18 @@ const handleRestore = async ({ file }: { file: { file: File } }) => {
   })
 }
 
+const loadVersion = async () => {
+  try {
+    const data = await getHealthInfo()
+    panelVersion.value = data.version || 'unknown'
+  } catch {
+    panelVersion.value = 'unknown'
+  }
+}
+
 onMounted(() => {
   loadConfigs()
+  loadVersion()
 })
 </script>
 
