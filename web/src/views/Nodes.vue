@@ -460,7 +460,7 @@
         <n-code :code="currentVersionConfig" language="yaml" word-wrap />
       </n-scrollbar>
       <template #action>
-        <n-button @click="navigator.clipboard.writeText(currentVersionConfig); message.success('已复制到剪贴板')">复制</n-button>
+        <n-button @click="copyVersionConfig">复制</n-button>
       </template>
     </n-modal>
   </div>
@@ -971,6 +971,11 @@ const handleCopyURI = async (row: any) => {
 
 const copyConfig = () => {
   navigator.clipboard.writeText(configContent.value)
+  message.success('已复制到剪贴板')
+}
+
+const copyVersionConfig = () => {
+  navigator.clipboard.writeText(currentVersionConfig.value)
   message.success('已复制到剪贴板')
 }
 
