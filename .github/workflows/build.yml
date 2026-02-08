@@ -40,7 +40,7 @@ jobs:
           BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S')
           COMMIT="${GITHUB_SHA::8}"
           LDFLAGS="-s -w -X 'main.AgentVersion=${VERSION}' -X 'main.AgentBuildTime=${BUILD_TIME}' -X 'main.AgentCommit=${COMMIT}'"
-          GOOS=linux GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o gost-agent cmd/agent/main.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o gost-agent cmd/agent/main.go
 
       - uses: actions/upload-artifact@v4
         with:
