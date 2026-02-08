@@ -71,7 +71,7 @@ try {
 }
 
 # Create Windows Service
-Write-Info "[4/4] Installing Windows service..."
+Write-Info "[4/5] Installing Windows service..."
 
 $serviceName = "GostClient"
 $serviceDisplayName = "GOST Panel Client"
@@ -140,6 +140,61 @@ if (Test-Path $nssmPath) {
 
     Write-Info "Scheduled task created and started"
 }
+
+# Install heartbeat with auto-uninstall
+Write-Info "[4.5/5] Setting up heartbeat..."
+
+$heartbeatScript = @"
+# GOST Client Heartbeat (auto-uninstall on 410 Gone)
+try {
+    `$response = Invoke-WebRequest -Uri "$PanelUrl/agent/client-heartbeat/$Token" -Method POST -UseBasicParsing -ErrorAction Stop
+} catch {
+    `$statusCode = `$_.Exception.Response.StatusCode.value__
+    if (`$statusCode -eq 410) {
+        # Client deleted from panel, auto-uninstall
+        Write-Host "[GOST] Client deleted from panel, auto-uninstalling..."
+
+        # Stop and remove service
+        `$svc = Get-Service -Name "GostClient" -ErrorAction SilentlyContinue
+        if (`$svc) {
+            Stop-Service -Name "GostClient" -Force -ErrorAction SilentlyContinue
+            if (Test-Path "$InstallDir\nssm.exe") {
+                & "$InstallDir\nssm.exe" remove "GostClient" confirm 2>`$null
+            } else {
+                sc.exe delete "GostClient" 2>`$null
+            }
+        }
+
+        # Remove scheduled tasks
+        Unregister-ScheduledTask -TaskName "GostClient" -Confirm:`$false -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName "GostHeartbeat" -Confirm:`$false -ErrorAction SilentlyContinue
+
+        # Remove files
+        Start-Sleep -Seconds 2
+        Remove-Item -Recurse -Force "$InstallDir" -ErrorAction SilentlyContinue
+
+        Write-Host "[GOST] Uninstall complete."
+    }
+}
+"@
+
+$heartbeatPath = "$InstallDir\heartbeat.ps1"
+Set-Content -Path $heartbeatPath -Value $heartbeatScript -Force
+
+# Create scheduled task for heartbeat (every minute)
+$heartbeatTaskName = "GostHeartbeat"
+Unregister-ScheduledTask -TaskName $heartbeatTaskName -Confirm:$false -ErrorAction SilentlyContinue
+
+$hbAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$heartbeatPath`""
+$hbTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1)
+$hbPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+$hbSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden
+
+Register-ScheduledTask -TaskName $heartbeatTaskName -Action $hbAction -Trigger $hbTrigger -Principal $hbPrincipal -Settings $hbSettings -Force | Out-Null
+
+# Send first heartbeat
+try { Invoke-WebRequest -Uri "$PanelUrl/agent/client-heartbeat/$Token" -Method POST -UseBasicParsing -ErrorAction SilentlyContinue | Out-Null } catch {}
+Write-Info "Heartbeat configured"
 
 # Extract local port from config
 $localPort = 38777

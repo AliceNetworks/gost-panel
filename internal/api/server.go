@@ -1052,13 +1052,34 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-# 创建心跳脚本
+# 创建心跳脚本 (含自动卸载检测)
 cat > /etc/gost/heartbeat.sh << HEARTBEAT
 #!/bin/bash
+HTTP_CODE=""
+
 if command -v curl &>/dev/null; then
-    curl -fsSL -X POST "${PANEL_URL}/agent/client-heartbeat/${CLIENT_TOKEN}" > /dev/null 2>&1
+    HTTP_CODE=\$(curl -s -o /dev/null -w "%%{http_code}" -X POST "${PANEL_URL}/agent/client-heartbeat/${CLIENT_TOKEN}" 2>/dev/null)
 elif command -v wget &>/dev/null; then
-    wget -qO /dev/null --post-data="" "${PANEL_URL}/agent/client-heartbeat/${CLIENT_TOKEN}" 2>/dev/null
+    HTTP_CODE=\$(wget -S -q --post-data="" "${PANEL_URL}/agent/client-heartbeat/${CLIENT_TOKEN}" -O /dev/null 2>&1 | awk '/HTTP\//{print \$2}' | tail -1)
+fi
+
+# 410 Gone = client deleted from panel, auto-uninstall
+if [ "\$HTTP_CODE" = "410" ]; then
+    echo "[GOST] Client deleted from panel, auto-uninstalling..."
+    if command -v systemctl &>/dev/null; then
+        systemctl stop gost 2>/dev/null
+        systemctl disable gost 2>/dev/null
+        rm -f /etc/systemd/system/gost.service
+        systemctl stop gost-heartbeat.timer 2>/dev/null
+        systemctl disable gost-heartbeat.timer 2>/dev/null
+        rm -f /etc/systemd/system/gost-heartbeat.service
+        rm -f /etc/systemd/system/gost-heartbeat.timer
+        systemctl daemon-reload
+    fi
+    (crontab -l 2>/dev/null | grep -v "gost/heartbeat") | crontab - 2>/dev/null
+    rm -rf /etc/gost
+    rm -f /usr/local/bin/gost
+    echo "[GOST] Uninstall complete."
 fi
 HEARTBEAT
 chmod +x /etc/gost/heartbeat.sh

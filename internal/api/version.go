@@ -188,7 +188,8 @@ func (s *Server) clientHeartbeat(c *gin.Context) {
 	// Update client status
 	err := s.svc.UpdateClientHeartbeat(token)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "client not found"})
+		// Client deleted or token invalid - signal remote to uninstall
+		c.JSON(http.StatusGone, gin.H{"error": "client not found", "uninstall": true})
 		return
 	}
 
