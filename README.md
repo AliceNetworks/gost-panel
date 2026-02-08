@@ -144,6 +144,43 @@ docker run -d \
   ghcr.io/alicenetworks/gost-panel:latest
 ```
 
+### Docker Compose 部署
+
+创建 `docker-compose.yml`：
+
+```yaml
+services:
+  gost-panel:
+    image: ghcr.io/alicenetworks/gost-panel:latest
+    container_name: gost-panel
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - JWT_SECRET=change-me-in-production   # 生产环境请修改
+    restart: unless-stopped
+```
+
+启动：
+
+```bash
+docker compose up -d
+```
+
+常用操作：
+
+```bash
+# 查看日志
+docker compose logs -f
+
+# 更新到最新版本
+docker compose pull && docker compose up -d
+
+# 停止并删除容器 (数据保留在 ./data 目录)
+docker compose down
+```
+
 ### 源码构建
 
 ```bash
